@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 1.5rem 2rem;
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #f0f6fc;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .plane-icon {
+            font-size: 1.5rem;
+        }
+
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .search-section {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: #8b949e;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            height: 64px;
+            padding: 0 1.25rem;
+            font-size: 1rem;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #f0f6fc;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+
+        .input-wrapper input::placeholder {
+            color: #484f58;
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: #6e7681;
+            margin-top: 0.5rem;
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .suggestion-label {
+            font-size: 0.75rem;
+            color: #6e7681;
+            width: 100%;
+            margin-bottom: 0.1rem;
+        }
+
+        .suggestion-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.65rem;
+            background-color: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #c9d1d9;
+            cursor: pointer;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+            user-select: none;
+        }
+
+        .suggestion-chip:hover {
+            background-color: #2d333b;
+            border-color: #58a6ff;
+            color: #f0f6fc;
+        }
+
+        .suggestion-chip .chip-flag {
+            font-size: 1rem;
+        }
+
+        .suggestion-chip .chip-name {
+            font-weight: 500;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 280px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            margin-top: -1px;
+        }
+
+        .autocomplete-dropdown.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            gap: 0.75rem;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background-color: #21262d;
+        }
+
+        .autocomplete-item .country-code {
+            color: #6e7681;
+            font-size: 0.875rem;
+            font-weight: 500;
+            min-width: 28px;
+        }
+
+        .autocomplete-item .country-name {
+            color: #f0f6fc;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .autocomplete-item .country-flag {
+            font-size: 1.25rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 700;
+            background-color: #FFB800;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            white-space: nowrap;
+            letter-spacing: 0.02em;
+        }
+
+        button:hover {
+            background-color: #FFC933;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background-color: #21262d;
+            color: #484f58;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            text-align: center;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .status.loading {
+            color: #58a6ff;
+        }
+
+        .status.error {
+            color: #f85149;
+        }
+
+        .status.success {
+            color: #3fb950;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #30363d;
+            border-top-color: #58a6ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        .flight-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .flight-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            border-color: #58a6ff;
+        }
+
+        .flight-callsign {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #58a6ff;
+            margin-bottom: 0.75rem;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            letter-spacing: 0.5px;
+        }
+
+        .flight-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .flight-detail {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
+
+        .flight-detail .icon {
+            width: 20px;
+            text-align: center;
+        }
+
+        .flight-detail .value {
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #6e7681;
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #8b949e;
+        }
+
+        #fetchBtn {
+            height: 64px;
+            padding: 0 1.75rem;
+        }
+
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid #30363d;
+            margin-bottom: 2rem;
+            background-color: #161b22;
+        }
+
+        .map-section {
+            display: none;
+        }
+
+        .map-section.show {
+            display: block;
+        }
+
+        .plane-marker {
+            background: none;
+            border: none;
+        }
+
+        .plane-marker svg {
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+            transition: transform 0.1s;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background-color: #161b22;
+            color: #c9d1d9;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+
+        .leaflet-popup-tip {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+        }
+
+        .leaflet-popup-content {
+            margin: 12px 16px;
+        }
+
+        .popup-callsign {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #58a6ff;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            margin-bottom: 8px;
+        }
+
+        .popup-detail {
+            font-size: 0.85rem;
+            color: #8b949e;
+            margin: 4px 0;
+        }
+
+        .popup-detail span {
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+
+        .popup-track-btn {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background-color: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .popup-track-btn:hover {
+            background-color: #2ea043;
+        }
+
+        .popup-track-btn:disabled {
+            background-color: #21262d;
+            color: #8b949e;
+            cursor: not-allowed;
+        }
+
+        .popup-track-btn.loading {
+            background-color: #1f6feb;
+        }
+
+        .start-marker {
+            background: #3fb950;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        }
+
+        .path-info {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #30363d;
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+
+        .path-info span {
+            color: #3fb950;
+        }
+
+        .content-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1200px) {
+            .content-layout.has-results {
+                grid-template-columns: 1fr 400px;
+            }
+
+            .content-layout.has-results #map {
+                height: 600px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            main {
+                padding: 1rem;
+            }
+
+            .search-form {
+                flex-direction: column;
+            }
+
+            .input-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-wrapper {
+                max-width: 100%;
+            }
+
+            #fetchBtn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span class="plane-icon">✈</span> Flight Tracker</h1>
+    </header>
+
+    <main>
+        <section class="search-section">
+            <form class="search-form" id="searchForm">
+                <div class="input-group">
+                    <label for="countryInput">Country</label>
+                    <div class="input-row">
+                        <div class="input-wrapper">
+                            <input 
+                                type="text" 
+                                id="countryInput" 
+                                placeholder="Type country code or name..." 
+                                autocomplete="off"
+                            >
+                            <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+                        </div>
+                        <button type="submit" id="fetchBtn">Fetch Flights</button>
+                    </div>
+                    <p class="hint">e.g. US, Canada, Germany, JP</p>
+                    <div class="suggestions">
+                        <span class="suggestion-label">Top aviation countries:</span>
+                        <button type="button" class="suggestion-chip" data-code="US">
+                            <span class="chip-flag">🇺🇸</span><span class="chip-name">United States</span>
+                        </button>
+                        <button type="button" class="suggestion-chip" data-code="CN">
+                            <span class="chip-flag">🇨🇳</span><span class="chip-name">China</span>
+                        </button>
+                        <button type="button" class="suggestion-chip" data-code="GB">
+                            <span class="chip-flag">🇬🇧</span><span class="chip-name">United Kingdom</span>
+                        </button>
+                        <button type="button" class="suggestion-chip" data-code="DE">
+                            <span class="chip-flag">🇩🇪</span><span class="chip-name">Germany</span>
+                        </button>
+                        <button type="button" class="suggestion-chip" data-code="FR">
+                            <span class="chip-flag">🇫🇷</span><span class="chip-name">France</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <div id="status" class="status"></div>
+        
+        <div class="content-layout" id="contentLayout">
+            <div class="map-section" id="mapSection">
+                <div id="map"></div>
+            </div>
+            <div id="results" class="results-grid"></div>
+        </div>
+    </main>
+
+    <script>
+        const COUNTRIES = [
+            { code: 'AF', name: 'Afghanistan', flag: '🇦🇫' },
+            { code: 'AL', name: 'Albania', flag: '🇦🇱' },
+            { code: 'DZ', name: 'Algeria', flag: '🇩🇿' },
+            { code: 'AR', name: 'Argentina', flag: '🇦🇷' },
+            { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+            { code: 'AT', name: 'Austria', flag: '🇦🇹' },
+            { code: 'BE', name: 'Belgium', flag: '🇧🇪' },
+            { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
+            { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+            { code: 'CL', name: 'Chile', flag: '🇨🇱' },
+            { code: 'CN', name: 'China', flag: '🇨🇳' },
+            { code: 'CO', name: 'Colombia', flag: '🇨🇴' },
+            { code: 'CZ', name: 'Czech Republic', flag: '🇨🇿' },
+            { code: 'DK', name: 'Denmark', flag: '🇩🇰' },
+            { code: 'EG', name: 'Egypt', flag: '🇪🇬' },
+            { code: 'FI', name: 'Finland', flag: '🇫🇮' },
+            { code: 'FR', name: 'France', flag: '🇫🇷' },
+            { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+            { code: 'GR', name: 'Greece', flag: '🇬🇷' },
+            { code: 'HK', name: 'Hong Kong', flag: '🇭🇰' },
+            { code: 'HU', name: 'Hungary', flag: '🇭🇺' },
+            { code: 'IN', name: 'India', flag: '🇮🇳' },
+            { code: 'ID', name: 'Indonesia', flag: '🇮🇩' },
+            { code: 'IE', name: 'Ireland', flag: '🇮🇪' },
+            { code: 'IL', name: 'Israel', flag: '🇮🇱' },
+            { code: 'IT', name: 'Italy', flag: '🇮🇹' },
+            { code: 'JP', name: 'Japan', flag: '🇯🇵' },
+            { code: 'KR', name: 'Republic of Korea', flag: '🇰🇷' },
+            { code: 'MY', name: 'Malaysia', flag: '🇲🇾' },
+            { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
+            { code: 'NL', name: 'Netherlands', flag: '🇳🇱' },
+            { code: 'NZ', name: 'New Zealand', flag: '🇳🇿' },
+            { code: 'NO', name: 'Norway', flag: '🇳🇴' },
+            { code: 'PK', name: 'Pakistan', flag: '🇵🇰' },
+            { code: 'PH', name: 'Philippines', flag: '🇵🇭' },
+            { code: 'PL', name: 'Poland', flag: '🇵🇱' },
+            { code: 'PT', name: 'Portugal', flag: '🇵🇹' },
+            { code: 'RU', name: 'Russia', flag: '🇷🇺' },
+            { code: 'SA', name: 'Saudi Arabia', flag: '🇸🇦' },
+            { code: 'SG', name: 'Singapore', flag: '🇸🇬' },
+            { code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
+            { code: 'ES', name: 'Spain', flag: '🇪🇸' },
+            { code: 'SE', name: 'Sweden', flag: '🇸🇪' },
+            { code: 'CH', name: 'Switzerland', flag: '🇨🇭' },
+            { code: 'TW', name: 'Taiwan', flag: '🇹🇼' },
+            { code: 'TH', name: 'Thailand', flag: '🇹🇭' },
+            { code: 'TR', name: 'Turkey', flag: '🇹🇷' },
+            { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪' },
+            { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+            { code: 'US', name: 'United States', flag: '🇺🇸' },
+            { code: 'VN', name: 'Vietnam', flag: '🇻🇳' }
+        ];
+
+        const searchForm = document.getElementById('searchForm');
+        const countryInput = document.getElementById('countryInput');
+        const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+        const fetchBtn = document.getElementById('fetchBtn');
+        const statusEl = document.getElementById('status');
+        const resultsEl = document.getElementById('results');
+
+        const mapSection = document.getElementById('mapSection');
+        const contentLayout = document.getElementById('contentLayout');
+
+        let selectedCountry = null;
+        let activeIndex = -1;
+        let map = null;
+        let markersLayer = null;
+        let currentFlightPath = null;
+        let pathStartMarker = null;
+
+        const API_BASE = '/api';
+
+        function getFlightsUrl() {
+            return `${API_BASE}/flights`;
+        }
+
+        function getTrackUrl(icao24) {
+            return `${API_BASE}/tracks?icao24=${encodeURIComponent(icao24)}`;
+        }
+
+        function initMap() {
+            if (map) return;
+            
+            map = L.map('map', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 2,
+                maxZoom: 18
+            });
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            markersLayer = L.layerGroup().addTo(map);
+        }
+
+        function createPlaneIcon(heading) {
+            const rotation = heading || 0;
+            return L.divIcon({
+                className: 'plane-marker',
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg);">
+                    <path fill="#58a6ff" d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                </svg>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12]
+            });
+        }
+
+        function createStartIcon() {
+            return L.divIcon({
+                className: 'start-marker',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+        }
+
+        function clearFlightPath() {
+            if (currentFlightPath) {
+                map.removeLayer(currentFlightPath);
+                currentFlightPath = null;
+            }
+            if (pathStartMarker) {
+                map.removeLayer(pathStartMarker);
+                pathStartMarker = null;
+            }
+        }
+
+        async function fetchFlightTrack(icao24, callsign, btn) {
+            btn.disabled = true;
+            btn.textContent = 'Loading track...';
+            btn.classList.add('loading');
+
+            try {
+                const response = await fetchApi(getTrackUrl(icao24));
+                const data = await response.json();
+
+                if (!data.path || data.path.length === 0) {
+                    btn.textContent = 'No track data available';
+                    setTimeout(() => {
+                        btn.textContent = 'Show Flight Path';
+                        btn.disabled = false;
+                        btn.classList.remove('loading');
+                    }, 2000);
+                    return;
+                }
+
+                clearFlightPath();
+
+                const pathCoords = data.path
+                    .filter(p => p[1] !== null && p[2] !== null)
+                    .map(p => [p[1], p[2]]);
+
+                if (pathCoords.length < 2) {
+                    btn.textContent = 'Insufficient track data';
+                    setTimeout(() => {
+                        btn.textContent = 'Show Flight Path';
+                        btn.disabled = false;
+                        btn.classList.remove('loading');
+                    }, 2000);
+                    return;
+                }
+
+                currentFlightPath = L.polyline(pathCoords, {
+                    color: '#3fb950',
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '10, 5'
+                }).addTo(map);
+
+                const startPoint = pathCoords[0];
+                pathStartMarker = L.marker(startPoint, {
+                    icon: createStartIcon()
+                }).addTo(map);
+
+                const startTime = new Date(data.startTime * 1000);
+                pathStartMarker.bindPopup(`
+                    <div class="popup-callsign">Departure Point</div>
+                    <div class="popup-detail">Flight: <span>${escapeHtml(callsign)}</span></div>
+                    <div class="popup-detail">Time: <span>${startTime.toLocaleTimeString()}</span></div>
+                    <div class="popup-detail">Position: <span>${startPoint[0].toFixed(4)}, ${startPoint[1].toFixed(4)}</span></div>
+                `);
+
+                map.fitBounds(currentFlightPath.getBounds(), { padding: [50, 50] });
+
+                const duration = Math.round((data.endTime - data.startTime) / 60);
+                btn.textContent = `Track: ${pathCoords.length} points, ${duration} min`;
+                btn.classList.remove('loading');
+                btn.classList.add('success');
+
+            } catch (error) {
+                console.error('Error fetching track:', error);
+                btn.textContent = 'Failed to load track';
+                btn.classList.remove('loading');
+                setTimeout(() => {
+                    btn.textContent = 'Show Flight Path';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+
+        function addFlightMarkers(flights) {
+            if (!map) initMap();
+            
+            markersLayer.clearLayers();
+            clearFlightPath();
+            
+            const bounds = [];
+            
+            flights.forEach(flight => {
+                const icao24 = flight[0];
+                const lat = flight[6];
+                const lon = flight[5];
+                const heading = flight[10];
+                
+                if (lat === null || lon === null) return;
+                
+                const callsign = (flight[1] || 'Unknown').trim() || 'Unknown';
+                const originCountry = flight[2] || 'Unknown';
+                const altitude = metersToFeet(flight[7]);
+                const speed = msToKmh(flight[9]);
+                
+                const marker = L.marker([lat, lon], {
+                    icon: createPlaneIcon(heading)
+                });
+                
+                const popupId = `track-btn-${icao24}`;
+                const popupContent = `
+                    <div class="popup-callsign">${escapeHtml(callsign)}</div>
+                    <div class="popup-detail">Country: <span>${escapeHtml(originCountry)}</span></div>
+                    <div class="popup-detail">Altitude: <span>${altitude} ft</span></div>
+                    <div class="popup-detail">Speed: <span>${speed} km/h</span></div>
+                    <div class="popup-detail">Heading: <span>${heading ? Math.round(heading) + '°' : 'N/A'}</span></div>
+                    <div class="popup-detail">Position: <span>${lat.toFixed(4)}, ${lon.toFixed(4)}</span></div>
+                    <button class="popup-track-btn" id="${popupId}">Show Flight Path</button>
+                `;
+                
+                marker.bindPopup(popupContent);
+                
+                marker.on('popupopen', () => {
+                    const btn = document.getElementById(popupId);
+                    if (btn) {
+                        btn.addEventListener('click', () => {
+                            fetchFlightTrack(icao24, callsign, btn);
+                        });
+                    }
+                });
+                
+                markersLayer.addLayer(marker);
+                bounds.push([lat, lon]);
+            });
+            
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 6 });
+            }
+        }
+
+        function filterCountries(query) {
+            const q = query.toLowerCase().trim();
+            if (!q) return [];
+            return COUNTRIES.filter(c => 
+                c.code.toLowerCase().startsWith(q) || 
+                c.name.toLowerCase().includes(q)
+            ).slice(0, 8);
+        }
+
+        function renderDropdown(matches) {
+            if (matches.length === 0) {
+                autocompleteDropdown.classList.remove('show');
+                autocompleteDropdown.innerHTML = '';
+                activeIndex = -1;
+                return;
+            }
+
+            autocompleteDropdown.innerHTML = matches.map((country, idx) => `
+                <div class="autocomplete-item${idx === activeIndex ? ' active' : ''}" data-code="${country.code}">
+                    <span class="country-code">${country.code}</span>
+                    <span class="country-name">${country.name}</span>
+                    <span class="country-flag">${country.flag}</span>
+                </div>
+            `).join('');
+
+            autocompleteDropdown.classList.add('show');
+        }
+
+        function selectCountry(country) {
+            selectedCountry = country;
+            countryInput.value = `${country.code} ${country.name}`;
+            autocompleteDropdown.classList.remove('show');
+            activeIndex = -1;
+            fetchFlights();
+        }
+
+        function findCountryByInput(input) {
+            const q = input.trim().toUpperCase();
+            return COUNTRIES.find(c => c.code === q) || 
+                   COUNTRIES.find(c => c.name.toLowerCase() === input.trim().toLowerCase());
+        }
+
+        countryInput.addEventListener('input', (e) => {
+            selectedCountry = null;
+            const matches = filterCountries(e.target.value);
+            activeIndex = -1;
+            renderDropdown(matches);
+        });
+
+        countryInput.addEventListener('keydown', (e) => {
+            const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+            if (!items.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                renderDropdown(filterCountries(countryInput.value));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, 0);
+                renderDropdown(filterCountries(countryInput.value));
+            } else if (e.key === 'Enter' && activeIndex >= 0) {
+                e.preventDefault();
+                const matches = filterCountries(countryInput.value);
+                if (matches[activeIndex]) {
+                    selectCountry(matches[activeIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                autocompleteDropdown.classList.remove('show');
+                activeIndex = -1;
+            }
+        });
+
+        autocompleteDropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.autocomplete-item');
+            if (item) {
+                const code = item.dataset.code;
+                const country = COUNTRIES.find(c => c.code === code);
+                if (country) selectCountry(country);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.input-wrapper')) {
+                autocompleteDropdown.classList.remove('show');
+                activeIndex = -1;
+            }
+        });
+
+        document.querySelectorAll('.suggestion-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const code = chip.dataset.code;
+                const country = COUNTRIES.find(c => c.code === code);
+                if (country) selectCountry(country);
+            });
+        });
+
+        countryInput.addEventListener('focus', () => {
+            if (countryInput.value && !selectedCountry) {
+                const matches = filterCountries(countryInput.value);
+                renderDropdown(matches);
+            }
+        });
+
+        function showStatus(message, type) {
+            statusEl.className = `status ${type}`;
+            if (type === 'loading') {
+                statusEl.innerHTML = `<span class="spinner"></span>${message}`;
+            } else {
+                statusEl.textContent = message;
+            }
+        }
+
+        function clearStatus() {
+            statusEl.className = 'status';
+            statusEl.innerHTML = '';
+        }
+
+        function metersToFeet(meters) {
+            if (meters === null || meters === undefined) return 'N/A';
+            return Math.round(meters * 3.28084).toLocaleString();
+        }
+
+        function msToKmh(ms) {
+            if (ms === null || ms === undefined) return 'N/A';
+            return Math.round(ms * 3.6).toLocaleString();
+        }
+
+        function createFlightCard(flight) {
+            const callsign = (flight[1] || 'Unknown').trim() || 'Unknown';
+            const originCountry = flight[2] || 'Unknown';
+            const altitude = metersToFeet(flight[7]);
+            const speed = msToKmh(flight[9]);
+
+            const card = document.createElement('div');
+            card.className = 'flight-card';
+            card.innerHTML = `
+                <div class="flight-callsign">${escapeHtml(callsign)}</div>
+                <div class="flight-details">
+                    <div class="flight-detail">
+                        <span class="icon">🌍</span>
+                        <span class="value">${escapeHtml(originCountry)}</span>
+                    </div>
+                    <div class="flight-detail">
+                        <span class="icon">↑</span>
+                        <span>Altitude:</span>
+                        <span class="value">${altitude} ft</span>
+                    </div>
+                    <div class="flight-detail">
+                        <span class="icon">→</span>
+                        <span>Speed:</span>
+                        <span class="value">${speed} km/h</span>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showEmptyState(message) {
+            resultsEl.innerHTML = `
+                <div class="empty-state" style="grid-column: 1 / -1;">
+                    <div class="icon">🔍</div>
+                    <h3>${message}</h3>
+                    <p>Try a different country code</p>
+                </div>
+            `;
+        }
+
+        async function fetchApi(url) {
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 429) {
+                    throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                }
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error('Invalid credentials. Please check server configuration.');
+                }
+                throw new Error(data.message || data.error || `API error: ${response.status}`);
+            }
+            
+            return response;
+        }
+
+        async function fetchFlights() {
+            let country = selectedCountry;
+            
+            if (!country) {
+                const input = countryInput.value.trim();
+                if (!input) {
+                    showStatus('Please select a country', 'error');
+                    return;
+                }
+                country = findCountryByInput(input);
+                if (!country) {
+                    showStatus(`Unknown country. Try selecting from the dropdown.`, 'error');
+                    return;
+                }
+            }
+
+            const countryName = country.name;
+
+            fetchBtn.disabled = true;
+            resultsEl.innerHTML = '';
+            mapSection.classList.remove('show');
+            contentLayout.classList.remove('has-results');
+            if (markersLayer) markersLayer.clearLayers();
+            showStatus(`Fetching flights over ${countryName}...`, 'loading');
+
+            try {
+                const response = await fetchApi(getFlightsUrl());
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.states || data.states.length === 0) {
+                    showStatus('No flight data available at the moment', 'error');
+                    return;
+                }
+
+                const flights = data.states
+                    .filter(s => s[2] === countryName && s[8] === false)
+                    .slice(0, 50);
+
+                if (flights.length === 0) {
+                    showStatus(`No flights currently in the air from ${countryName}`, 'success');
+                    showEmptyState(`No active flights from ${countryName}`);
+                    return;
+                }
+
+                showStatus(`Found ${flights.length} flight${flights.length !== 1 ? 's' : ''} from ${countryName}`, 'success');
+
+                mapSection.classList.add('show');
+                contentLayout.classList.add('has-results');
+                addFlightMarkers(flights);
+
+                flights.forEach(flight => {
+                    resultsEl.appendChild(createFlightCard(flight));
+                });
+
+            } catch (error) {
+                console.error('Error fetching flights:', error);
+                showStatus(`Failed to fetch flights: ${error.message}`, 'error');
+            } finally {
+                fetchBtn.disabled = false;
+            }
+        }
+
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            autocompleteDropdown.classList.remove('show');
+            fetchFlights();
+        });
+    </script>
+</body>
+</html>
