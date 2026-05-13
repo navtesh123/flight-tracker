@@ -622,10 +622,13 @@
         let currentFlightPath = null;
         let pathStartMarker = null;
 
-        const API_URL = 'https://YOUR_USERNAME:YOUR_PASSWORD@opensky-network.org/api/states/all';
+        const OPENSKY_USERNAME = 'YOUR_USERNAME';
+        const OPENSKY_PASSWORD = 'YOUR_PASSWORD';
+
+        const API_URL = `https://${OPENSKY_USERNAME}:${OPENSKY_PASSWORD}@opensky-network.org/api/states/all`;
 
         function getTrackUrl(icao24) {
-            return `https://YOUR_USERNAME:YOUR_PASSWORD@opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+            return `https://${OPENSKY_USERNAME}:${OPENSKY_PASSWORD}@opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
         }
 
         function initMap() {
