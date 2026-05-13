@@ -622,14 +622,10 @@
         let currentFlightPath = null;
         let pathStartMarker = null;
 
-        const API_BASE = '/api';
-
-        function getFlightsUrl() {
-            return `${API_BASE}/flights`;
-        }
+        const API_URL = 'https://YOUR_USERNAME:YOUR_PASSWORD@opensky-network.org/api/states/all';
 
         function getTrackUrl(icao24) {
-            return `${API_BASE}/tracks?icao24=${encodeURIComponent(icao24)}`;
+            return `https://YOUR_USERNAME:YOUR_PASSWORD@opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
         }
 
         function initMap() {
@@ -689,7 +685,7 @@
             btn.classList.add('loading');
 
             try {
-                const response = await fetchApi(getTrackUrl(icao24));
+                const response = await fetchWithCorsProxy(getTrackUrl(icao24));
                 const data = await response.json();
 
                 if (!data.path || data.path.length === 0) {
@@ -986,21 +982,63 @@
             `;
         }
 
-        async function fetchApi(url) {
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                if (response.status === 429) {
-                    throw new Error('Rate limited by the API. Please wait a minute and try again.');
-                }
-                if (response.status === 401 || response.status === 403) {
-                    throw new Error('Invalid credentials. Please check server configuration.');
-                }
-                throw new Error(data.message || data.error || `API error: ${response.status}`);
+        const CORS_PROXIES = [
+            { url: 'https://api.allorigins.win/raw?url=', encode: true },
+            { url: 'https://corsproxy.io/?', encode: true },
+            { url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
+        ];
+
+        async function fetchWithTimeout(url, timeout = 10000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (e) {
+                clearTimeout(id);
+                throw e;
             }
-            
-            return response;
+        }
+
+        async function fetchWithCorsProxy(url) {
+            const errors = [];
+            for (const proxy of CORS_PROXIES) {
+                try {
+                    const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(url) : url);
+                    const response = await fetchWithTimeout(proxyUrl, 15000);
+                    if (response.ok) {
+                        const text = await response.text();
+                        const trimmed = text.trim();
+                        if (trimmed.toLowerCase().includes('too many requests') || trimmed.toLowerCase().includes('rate limit')) {
+                            throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                        }
+                        if (trimmed.toLowerCase().includes('unauthorized') || trimmed.toLowerCase().includes('invalid credentials')) {
+                            throw new Error('Invalid credentials. Please check your username and password.');
+                        }
+                        if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+                            errors.push(`${proxy.url}: Invalid response`);
+                            continue;
+                        }
+                        return new Response(text, { status: 200 });
+                    }
+                    if (response.status === 429) {
+                        throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                    }
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error('Invalid credentials. Please check your username and password.');
+                    }
+                    errors.push(`${proxy.url}: HTTP ${response.status}`);
+                } catch (e) {
+                    if (e.message.includes('Rate limited') || e.message.includes('Invalid credentials')) {
+                        throw e;
+                    }
+                    errors.push(`${proxy.url}: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
+                    continue;
+                }
+            }
+            console.error('All proxies failed:', errors);
+            throw new Error('Unable to reach flight API. Please try again later.');
         }
 
         async function fetchFlights() {
@@ -1029,7 +1067,7 @@
             showStatus(`Fetching flights over ${countryName}...`, 'loading');
 
             try {
-                const response = await fetchApi(getFlightsUrl());
+                const response = await fetchWithCorsProxy(API_URL);
                 
                 if (!response.ok) {
                     throw new Error(`API error: ${response.status}`);
