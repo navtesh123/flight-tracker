@@ -1,3 +1,5 @@
+const https = require('https');
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -20,28 +22,48 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'API credentials not configured' });
   }
 
-  try {
-    const auth = Buffer.from(`${username}:${password}`).toString('base64');
-    const response = await fetch(
-      `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`,
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`
-        }
+  const auth = Buffer.from(`${username}:${password}`).toString('base64');
+
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'opensky-network.org',
+      path: `/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${auth}`
       }
-    );
+    };
 
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ 
-        error: `OpenSky API error: ${response.status}`,
-        message: text
+    const request = https.request(options, (response) => {
+      let data = '';
+
+      response.on('data', (chunk) => {
+        data += chunk;
       });
-    }
 
-    const data = await response.json();
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch track', message: error.message });
-  }
-}
+      response.on('end', () => {
+        if (response.statusCode === 200) {
+          try {
+            const json = JSON.parse(data);
+            res.status(200).json(json);
+          } catch (e) {
+            res.status(500).json({ error: 'Invalid JSON response', message: data.substring(0, 200) });
+          }
+        } else {
+          res.status(response.statusCode).json({ 
+            error: `OpenSky API error: ${response.statusCode}`,
+            message: data.substring(0, 200)
+          });
+        }
+        resolve();
+      });
+    });
+
+    request.on('error', (error) => {
+      res.status(500).json({ error: 'Request failed', message: error.message });
+      resolve();
+    });
+
+    request.end();
+  });
+};
