@@ -839,23 +839,94 @@
             }
         }
 
-        function getApiUrl() {
-            const params = new URLSearchParams();
+        function getOpenSkyUrl() {
             if (credentials) {
-                params.set('username', credentials.username);
-                params.set('password', credentials.password);
+                return `https://${encodeURIComponent(credentials.username)}:${encodeURIComponent(credentials.password)}@opensky-network.org/api/states/all`;
             }
-            const qs = params.toString();
-            return `/api/flights${qs ? '?' + qs : ''}`;
+            return 'https://opensky-network.org/api/states/all';
         }
 
-        function getTrackUrl(icao24) {
-            const params = new URLSearchParams({ icao24 });
+        function getOpenSkyTrackUrl(icao24) {
             if (credentials) {
-                params.set('username', credentials.username);
-                params.set('password', credentials.password);
+                return `https://${encodeURIComponent(credentials.username)}:${encodeURIComponent(credentials.password)}@opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
             }
-            return `/api/track?${params.toString()}`;
+            return `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+        }
+
+        const CORS_PROXIES = [
+            { url: 'https://api.allorigins.win/raw?url=', encode: true },
+            { url: 'https://corsproxy.io/?', encode: true },
+            { url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
+        ];
+
+        async function fetchWithTimeout(url, timeout = 15000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (e) {
+                clearTimeout(id);
+                throw e;
+            }
+        }
+
+        async function fetchFromApi(apiUrl) {
+            const errors = [];
+
+            // Try our serverless function first
+            try {
+                const params = new URLSearchParams();
+                if (credentials) {
+                    params.set('username', credentials.username);
+                    params.set('password', credentials.password);
+                }
+                const qs = params.toString();
+                const serverUrl = apiUrl.includes('tracks/all')
+                    ? `/api/track?icao24=${new URL(apiUrl.replace(/\/\/[^@]+@/, '//')).searchParams.get('icao24')}${qs ? '&' + qs : ''}`
+                    : `/api/flights${qs ? '?' + qs : ''}`;
+                const response = await fetchWithTimeout(serverUrl, 10000);
+                if (response.ok) {
+                    const text = await response.text();
+                    const trimmed = text.trim();
+                    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                        return new Response(trimmed, { status: 200 });
+                    }
+                }
+            } catch (e) {
+                errors.push('server: ' + e.message);
+            }
+
+            // Fallback to client-side CORS proxies
+            for (const proxy of CORS_PROXIES) {
+                try {
+                    const proxyUrl = proxy.url + (proxy.encode ? encodeURIComponent(apiUrl) : apiUrl);
+                    const response = await fetchWithTimeout(proxyUrl, 15000);
+                    if (response.ok) {
+                        const text = await response.text();
+                        const trimmed = text.trim();
+                        if (trimmed.toLowerCase().includes('too many requests') || trimmed.toLowerCase().includes('rate limit')) {
+                            throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                        }
+                        if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+                            errors.push(`${proxy.url}: invalid response`);
+                            continue;
+                        }
+                        return new Response(text, { status: 200 });
+                    }
+                    if (response.status === 429) {
+                        throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                    }
+                    errors.push(`${proxy.url}: HTTP ${response.status}`);
+                } catch (e) {
+                    if (e.message.includes('Rate limited')) throw e;
+                    errors.push(`${proxy.url}: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
+                }
+            }
+
+            console.error('All methods failed:', errors);
+            throw new Error('Unable to reach flight API. Please try again later.');
         }
 
         loginBtn.addEventListener('click', () => {
@@ -949,7 +1020,7 @@
             btn.classList.add('loading');
 
             try {
-                const response = await fetch(getTrackUrl(icao24));
+                const response = await fetchFromApi(getOpenSkyTrackUrl(icao24));
                 const data = await response.json();
 
                 if (!data.path || data.path.length === 0) {
@@ -1273,19 +1344,8 @@
             showStatus(`Fetching flights over ${countryName}...`, 'loading');
 
             try {
-                const response = await fetch(getApiUrl());
-                const text = await response.text();
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch (e) {
-                    throw new Error(`Server returned invalid response (HTTP ${response.status})`);
-                }
-
-                if (!response.ok) {
-                    const msg = data.details ? `${data.error} (${data.details})` : data.error;
-                    throw new Error(msg || `API error: ${response.status}`);
-                }
+                const response = await fetchFromApi(getOpenSkyUrl());
+                const data = await response.json();
 
                 if (!data.states || data.states.length === 0) {
                     showStatus('No flight data available at the moment', 'error');
