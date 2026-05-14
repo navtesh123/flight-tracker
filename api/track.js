@@ -1,11 +1,21 @@
 export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   const { icao24, username, password } = req.query;
 
   if (!icao24) {
     return res.status(400).json({ error: 'icao24 parameter is required' });
   }
 
-  let url = `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+  const url = `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
   const headers = {};
 
   if (username && password) {
@@ -29,6 +39,8 @@ export default async function handler(req, res) {
     }
 
     if (!response.ok) {
+      const text = await response.text();
+      console.error(`OpenSky API error ${response.status}:`, text);
       return res.status(response.status).json({
         error: `OpenSky API returned ${response.status}`,
       });
@@ -39,6 +51,10 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
     return res.status(200).json(data);
   } catch (err) {
-    return res.status(502).json({ error: 'Failed to reach OpenSky API' });
+    console.error('Error fetching from OpenSky:', err);
+    return res.status(502).json({ 
+      error: 'Failed to reach OpenSky API',
+      details: err.message 
+    });
   }
 }
