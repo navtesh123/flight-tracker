@@ -26,7 +26,6 @@ async function handleApiFlights(req, res, query) {
   }
 
   try {
-    const fetch = (await import('node-fetch')).default;
     const response = await fetch(url, { headers });
 
     if (response.status === 401 || response.status === 403) {
@@ -80,7 +79,6 @@ async function handleApiTrack(req, res, query) {
   }
 
   try {
-    const fetch = (await import('node-fetch')).default;
     const response = await fetch(url, { headers });
 
     if (response.status === 401 || response.status === 403) {

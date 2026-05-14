@@ -1,12 +1,8 @@
-const fetch = require('node-fetch');
-
 module.exports = async function handler(req, res) {
-  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -41,8 +37,6 @@ module.exports = async function handler(req, res) {
     }
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error(`OpenSky API error ${response.status}:`, text);
       return res.status(response.status).json({
         error: `OpenSky API returned ${response.status}`,
       });
@@ -54,9 +48,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(data);
   } catch (err) {
     console.error('Error fetching from OpenSky:', err);
-    return res.status(502).json({ 
+    return res.status(502).json({
       error: 'Failed to reach OpenSky API',
-      details: err.message 
+      details: err.message,
     });
   }
 };

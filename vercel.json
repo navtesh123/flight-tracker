@@ -4,5 +4,9 @@
       "memory": 1024,
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/flights", "destination": "/api/flights" },
+    { "source": "/api/track", "destination": "/api/track" }
+  ]
 }
