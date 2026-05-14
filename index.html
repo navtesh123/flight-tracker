@@ -1283,7 +1283,8 @@
                 }
 
                 if (!response.ok) {
-                    throw new Error(data.error || `API error: ${response.status}`);
+                    const msg = data.details ? `${data.error} (${data.details})` : data.error;
+                    throw new Error(msg || `API error: ${response.status}`);
                 }
 
                 if (!data.states || data.states.length === 0) {
