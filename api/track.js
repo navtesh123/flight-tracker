@@ -1,0 +1,44 @@
+export default async function handler(req, res) {
+  const { icao24, username, password } = req.query;
+
+  if (!icao24) {
+    return res.status(400).json({ error: 'icao24 parameter is required' });
+  }
+
+  let url = `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+  const headers = {};
+
+  if (username && password) {
+    headers['Authorization'] =
+      'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+  }
+
+  try {
+    const response = await fetch(url, { headers });
+
+    if (response.status === 401 || response.status === 403) {
+      return res.status(response.status).json({
+        error: 'Invalid credentials. Please check your username and password.',
+      });
+    }
+
+    if (response.status === 429) {
+      return res.status(429).json({
+        error: 'Rate limited by the API. Please wait a minute and try again.',
+      });
+    }
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: `OpenSky API returned ${response.status}`,
+      });
+    }
+
+    const data = await response.json();
+
+    res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(502).json({ error: 'Failed to reach OpenSky API' });
+  }
+}
