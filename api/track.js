@@ -22,7 +22,10 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(url, { headers });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    const response = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timeout);
 
     if (response.status === 401 || response.status === 403) {
       return res.status(response.status).json({
