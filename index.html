@@ -36,6 +36,151 @@
             gap: 0.75rem;
         }
 
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .auth-status {
+            font-size: 0.875rem;
+            color: #8b949e;
+        }
+
+        .auth-status.logged-in {
+            color: #3fb950;
+        }
+
+        .auth-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background-color: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .auth-btn:hover {
+            background-color: #30363d;
+            border-color: #8b949e;
+        }
+
+        .auth-btn.logout {
+            background-color: transparent;
+            border-color: #f85149;
+            color: #f85149;
+        }
+
+        .auth-btn.logout:hover {
+            background-color: rgba(248, 81, 73, 0.1);
+        }
+
+        .login-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-modal.show {
+            display: flex;
+        }
+
+        .login-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            margin: 1rem;
+        }
+
+        .login-card h2 {
+            font-size: 1.25rem;
+            color: #f0f6fc;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-card p {
+            font-size: 0.875rem;
+            color: #8b949e;
+            margin-bottom: 1.5rem;
+        }
+
+        .login-card a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+
+        .login-card a:hover {
+            text-decoration: underline;
+        }
+
+        .login-field {
+            margin-bottom: 1rem;
+        }
+
+        .login-field label {
+            display: block;
+            font-size: 0.875rem;
+            color: #c9d1d9;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-field input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #f0f6fc;
+        }
+
+        .login-field input:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+
+        .login-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .login-actions button {
+            flex: 1;
+            padding: 0.75rem 1rem;
+        }
+
+        .login-actions .cancel-btn {
+            background-color: #21262d;
+            color: #c9d1d9;
+        }
+
+        .login-actions .cancel-btn:hover {
+            background-color: #30363d;
+        }
+
         .plane-icon {
             font-size: 1.5rem;
         }
@@ -497,8 +642,36 @@
 </head>
 <body>
     <header>
-        <h1><span class="plane-icon">✈</span> Flight Tracker</h1>
+        <div class="header-content">
+            <h1><span class="plane-icon">✈</span> Flight Tracker</h1>
+            <div class="auth-section">
+                <span class="auth-status" id="authStatus">Not logged in (limited requests)</span>
+                <button class="auth-btn" id="loginBtn">Log in to OpenSky</button>
+                <button class="auth-btn logout" id="logoutBtn" style="display: none;">Log out</button>
+            </div>
+        </div>
     </header>
+
+    <div class="login-modal" id="loginModal">
+        <div class="login-card">
+            <h2>OpenSky Network Login</h2>
+            <p>Log in for higher rate limits. <a href="https://opensky-network.org/index.php?option=com_users&view=registration" target="_blank">Create free account</a></p>
+            <form id="loginForm">
+                <div class="login-field">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Your OpenSky username" required>
+                </div>
+                <div class="login-field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Your OpenSky password" required>
+                </div>
+                <div class="login-actions">
+                    <button type="button" class="cancel-btn" id="cancelLogin">Cancel</button>
+                    <button type="submit">Log in</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <main>
         <section class="search-section">
@@ -621,15 +794,98 @@
         let markersLayer = null;
         let currentFlightPath = null;
         let pathStartMarker = null;
+        let credentials = null;
 
-        const OPENSKY_USERNAME = 'nav';
-        const OPENSKY_PASSWORD = 'eF6RgmcsSjiFhdm';
+        const loginModal = document.getElementById('loginModal');
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const cancelLogin = document.getElementById('cancelLogin');
+        const authStatus = document.getElementById('authStatus');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
 
-        const API_URL = `https://${OPENSKY_USERNAME}:${OPENSKY_PASSWORD}@opensky-network.org/api/states/all`;
+        function loadCredentials() {
+            const saved = sessionStorage.getItem('opensky_auth');
+            if (saved) {
+                credentials = JSON.parse(saved);
+                updateAuthUI();
+            }
+        }
+
+        function saveCredentials(username, password) {
+            credentials = { username, password };
+            sessionStorage.setItem('opensky_auth', JSON.stringify(credentials));
+            updateAuthUI();
+        }
+
+        function clearCredentials() {
+            credentials = null;
+            sessionStorage.removeItem('opensky_auth');
+            updateAuthUI();
+        }
+
+        function updateAuthUI() {
+            if (credentials) {
+                authStatus.textContent = `Logged in as ${credentials.username}`;
+                authStatus.classList.add('logged-in');
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'block';
+            } else {
+                authStatus.textContent = 'Not logged in (limited requests)';
+                authStatus.classList.remove('logged-in');
+                loginBtn.style.display = 'block';
+                logoutBtn.style.display = 'none';
+            }
+        }
+
+        function getApiUrl() {
+            if (credentials) {
+                return `https://${encodeURIComponent(credentials.username)}:${encodeURIComponent(credentials.password)}@opensky-network.org/api/states/all`;
+            }
+            return 'https://opensky-network.org/api/states/all';
+        }
 
         function getTrackUrl(icao24) {
-            return `https://${OPENSKY_USERNAME}:${OPENSKY_PASSWORD}@opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+            if (credentials) {
+                return `https://${encodeURIComponent(credentials.username)}:${encodeURIComponent(credentials.password)}@opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+            }
+            return `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
         }
+
+        loginBtn.addEventListener('click', () => {
+            loginModal.classList.add('show');
+            usernameInput.focus();
+        });
+
+        cancelLogin.addEventListener('click', () => {
+            loginModal.classList.remove('show');
+            loginForm.reset();
+        });
+
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) {
+                loginModal.classList.remove('show');
+                loginForm.reset();
+            }
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            if (username && password) {
+                saveCredentials(username, password);
+                loginModal.classList.remove('show');
+                loginForm.reset();
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            clearCredentials();
+        });
+
+        loadCredentials();
 
         function initMap() {
             if (map) return;
@@ -1070,7 +1326,7 @@
             showStatus(`Fetching flights over ${countryName}...`, 'loading');
 
             try {
-                const response = await fetchWithCorsProxy(API_URL);
+                const response = await fetchWithCorsProxy(getApiUrl());
                 
                 if (!response.ok) {
                     throw new Error(`API error: ${response.status}`);
