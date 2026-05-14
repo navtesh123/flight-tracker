@@ -2,13 +2,9 @@
   "name": "flight-tracker",
   "version": "1.0.0",
   "scripts": {
-    "dev": "node server.js",
-    "build": "vercel build"
+    "dev": "node server.js"
   },
   "dependencies": {
     "node-fetch": "^2.7.0"
-  },
-  "devDependencies": {
-    "vercel": "^34.0.0"
   }
 }
