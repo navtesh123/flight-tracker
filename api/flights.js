@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
 
   const strategies = [
     { name: 'allorigins', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`, headers: {} },
-    { name: 'codetabs', url: `https://api.codetabs.com/v1/proxy?quest=${apiUrl}`, headers: {} },
+    { name: 'codetabs', url: `https://api.codetabs.com/v1/proxy/?quest=${apiUrl}`, headers: {} },
     { name: 'direct', url: apiUrl, headers: authHeaders, timeout: 5000 },
   ];
 

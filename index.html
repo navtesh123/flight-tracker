@@ -855,8 +855,8 @@
 
         const CORS_PROXIES = [
             { url: 'https://api.allorigins.win/raw?url=', encode: true },
-            { url: 'https://corsproxy.io/?', encode: true },
-            { url: 'https://api.codetabs.com/v1/proxy?quest=', encode: false }
+            { url: 'https://api.codetabs.com/v1/proxy/?quest=', encode: false },
+            { url: 'https://corsproxy.io/?', encode: true }
         ];
 
         async function fetchWithTimeout(url, timeout = 15000) {
@@ -907,7 +907,8 @@
                         const text = await response.text();
                         const trimmed = text.trim();
                         if (trimmed.toLowerCase().includes('too many requests') || trimmed.toLowerCase().includes('rate limit')) {
-                            throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                            errors.push(`${proxy.url}: rate limited`);
+                            continue;
                         }
                         if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
                             errors.push(`${proxy.url}: invalid response`);
@@ -916,11 +917,11 @@
                         return new Response(text, { status: 200 });
                     }
                     if (response.status === 429) {
-                        throw new Error('Rate limited by the API. Please wait a minute and try again.');
+                        errors.push(`${proxy.url}: rate limited`);
+                        continue;
                     }
                     errors.push(`${proxy.url}: HTTP ${response.status}`);
                 } catch (e) {
-                    if (e.message.includes('Rate limited')) throw e;
                     errors.push(`${proxy.url}: ${e.name === 'AbortError' ? 'timeout' : e.message}`);
                 }
             }
